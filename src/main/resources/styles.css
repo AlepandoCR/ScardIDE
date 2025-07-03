@@ -101,3 +101,54 @@
 .status-error {
     -fx-text-fill: #FF5252; /* Red for error status */
 }
+
+/* Project View (TreeView) */
+.tree-view {
+    -fx-background-color: #2B2B2B; /* Match editor background */
+    -fx-text-fill: #D0D0D0;
+    -fx-font-family: "Consolas", "Monaco", "Andale Mono", monospace;
+    -fx-font-size: 11pt;
+    -fx-pref-width: 250px; /* Default width for the project view */
+    -fx-border-color: #3C3F41; /* Border to separate from editor */
+    -fx-border-width: 0 1px 0 0; /* Right border only */
+}
+
+.tree-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #D0D0D0;
+    -fx-padding: 4px 8px;
+}
+
+.tree-cell:filled:hover {
+    -fx-background-color: #3C3F41; /* Hover color similar to menu hover */
+    -fx-text-fill: white;
+}
+
+.tree-cell:filled:selected {
+    -fx-background-color: #007ACC; /* Selection color - VS Code blue */
+    -fx-text-fill: white;
+}
+
+.tree-cell:filled:selected:focused {
+    -fx-background-color: #007ACC;
+}
+
+.tree-view .scroll-bar:vertical,
+.tree-view .scroll-bar:horizontal {
+    -fx-background-color: #3C3F41;
+}
+
+.tree-view .scroll-bar .thumb {
+    -fx-background-color: #555555;
+}
+
+.tree-view .scroll-bar .increment-button,
+.tree-view .scroll-bar .decrement-button {
+    -fx-background-color: #3C3F41;
+    -fx-border-color: #555555;
+}
+
+.tree-view .scroll-bar .increment-arrow,
+.tree-view .scroll-bar .decrement-arrow {
+    -fx-background-color: #D0D0D0;
+}
