@@ -1,4 +1,4 @@
-package editor.style
+package dev.alepando.editor.style
 
 import org.fxmisc.richtext.model.StyleSpans
 import org.fxmisc.richtext.model.StyleSpansBuilder

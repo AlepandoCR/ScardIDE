@@ -1,7 +1,7 @@
-package editor
+package dev.alepando.editor
 
-import editor.style.ScardSyntaxHighlighter
-import editor.style.ScardValidator
+import dev.alepando.editor.style.ScardSyntaxHighlighter
+import dev.alepando.editor.style.ScardValidator
 import javafx.application.Application
 import javafx.application.Platform
 import javafx.scene.Scene

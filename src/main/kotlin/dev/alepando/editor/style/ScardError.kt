@@ -1,4 +1,4 @@
-package editor.style
+package dev.alepando.editor.style
 
 
 data class ScardError(val line: Int, val message: String)

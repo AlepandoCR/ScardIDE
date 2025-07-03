@@ -12,37 +12,58 @@ repositories {
     mavenCentral()
 }
 
+val javafxVersion = "24.0.1"
+
 dependencies {
     implementation(kotlin("stdlib"))
-    implementation("org.openjfx:javafx-controls:24.0.1")
+    implementation("org.openjfx:javafx-controls:$javafxVersion")
     implementation("org.fxmisc.richtext:richtextfx:0.10.9")
 }
 
 javafx {
-    version = "24.0.1"
-    modules = listOf("javafx.controls")
+    version = javafxVersion
+    modules = listOf("javafx.controls", "javafx.graphics")
 }
 
+
+
 java {
-    toolchain.languageVersion.set(JavaLanguageVersion.of(22))
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(22))
+        vendor.set(JvmVendorSpec.ADOPTIUM)
+    }
 }
+
 
 application {
     mainClass.set("dev.alepando.MainKt")
+    mainModule.set("ScardIDE.main")
 }
 
+
 jlink {
-    options.set(listOf("--strip-debug", "--compress", "2", "--no-header-files", "--no-man-pages"))
-    extraModulePaths.add("javafx.controls")
-    extraModulePaths.add("javafx.graphics")
+    mergedModule {
+        enabled = true
+    }
+
+    forceMerge("javafx", "org.fxmisc")
+
     launcher {
         name = "ScardIDE"
     }
+
     jpackage {
-        imageName = "MiApp"
+        imageName = "ScardIDE"
         installerType = "exe"
+        appVersion = "1.0.0"
+        vendor = "Alepando"
+        installerName = "ScardIDE Installer"
+        installerOptions.addAll(listOf("--win-menu", "--win-shortcut"))
     }
+
 }
+
+
 
 tasks.jar {
     manifest {

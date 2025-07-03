@@ -1,6 +1,6 @@
 package dev.alepando
 
-import editor.ScardEditor
+import dev.alepando.editor.ScardEditor
 import javafx.application.Application
 
 
