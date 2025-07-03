@@ -29,7 +29,7 @@ You can also open `.scard` files directly with ScardIDE after installation, or l
 
 ## What are `.scard` files?
 
-`.scard` files (described as "Scard Script File") are text-based files used by ScardIDE. They appear to define attributes for game elements. An example structure from the default template includes:
+`.scard` files (described as "Scard Script File") are text-based files used by ScardIDE. They  define attributes for game elements. An example structure from the default template includes:
 
 ```
 id = "unique_card_id"
