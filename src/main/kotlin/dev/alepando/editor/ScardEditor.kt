@@ -36,6 +36,7 @@ class ScardEditor : Application() {
 
     private lateinit var codeArea: CodeArea // Make it a class member
     private lateinit var projectView: ProjectView // Add ProjectView member
+    private var currentFile: File? = null
 
     private val statusLabel = Label().apply {
         id = "statusLabel"
@@ -48,6 +49,14 @@ class ScardEditor : Application() {
     }
     private var scheduledValidationTask: ScheduledFuture<*>? = null
     private val validationDelayMs = 300L
+
+    private val autoSaveExecutor = Executors.newSingleThreadScheduledExecutor { runnable ->
+        val thread = Thread(runnable)
+        thread.isDaemon = true
+        thread
+    }
+    private var scheduledAutoSaveTask: ScheduledFuture<*>? = null
+    private val autoSaveDelayMs = 1000L // 1 second for auto-save
 
     private lateinit var autoCompleteService: AutoCompleteService
     private lateinit var suggestionsPopup: ContextMenu
@@ -82,11 +91,33 @@ class ScardEditor : Application() {
 
 
         projectView = ProjectView { filePath ->
+            // Attempt to save the currently open file before switching
+            currentFile?.let { fileToSaveBeforeSwitching ->
+                // Check if codeArea has text and the file exists.
+                // A more sophisticated "dirty" check could be implemented,
+                // but a direct write is simpler given auto-save.
+                if (codeArea.text.isNotEmpty() && fileToSaveBeforeSwitching.exists()) {
+                    try {
+                        fileToSaveBeforeSwitching.writeText(codeArea.text)
+                        // Optionally, update status briefly, though it might be too quick to notice
+                        // statusLabel.text = "Auto-saved ${fileToSaveBeforeSwitching.name} before switch."
+                    } catch (e: Exception) {
+                        System.err.println("Error saving ${fileToSaveBeforeSwitching.name} before switching: ${e.message}")
+                        // Decide if you want to inform the user via statusLabel
+                        // statusLabel.text = "Error saving current file: ${e.message}"
+                        // statusLabel.styleClass.setAll("status-error")
+                    }
+                }
+            }
+
+            // Proceed to load the new file
             try {
-                val content = filePath.toFile().readText()
+                val file = filePath.toFile()
+                val content = file.readText()
                 codeArea.replaceText(content)
+                currentFile = file // Update currentFile
                 performValidation(content, codeArea)
-                primaryStage.title = "Scard IDE - ${filePath.fileName}"
+                primaryStage.title = "Scard IDE - ${file.name}"
             } catch (e: Exception) {
                 // Handle file reading errors, e.g., show an alert
                 e.printStackTrace()
@@ -130,7 +161,8 @@ class ScardEditor : Application() {
             ?: throw IllegalStateException("styles.css not found")
         scene.stylesheets.add(stylesheet.toExternalForm())
 
-        primaryStage.title = "Scard IDE"
+        primaryStage.title = "Scard IDE - Sin título" // Default title for new/empty editor
+        currentFile = null // Explicitly null for a new session without a file
         primaryStage.scene = scene
         primaryStage.show()
 
@@ -148,6 +180,7 @@ class ScardEditor : Application() {
             if (file.exists() && file.extension == "scard") {
                 val content = file.readText()
                 codeArea.replaceText(content)
+                currentFile = file // Update currentFile
                 performValidation(content, codeArea)
                 primaryStage.title = "Scard IDE - ${file.name}"
 
@@ -343,16 +376,45 @@ class ScardEditor : Application() {
 
     private fun setupLiveValidation(codeArea: CodeArea) {
         codeArea.textProperty().addListener { _, _, newText ->
+            // Debounce validation
             scheduledValidationTask?.cancel(false)
             scheduledValidationTask = validationExecutor.schedule({
                 performValidation(newText, codeArea)
             }, validationDelayMs, TimeUnit.MILLISECONDS)
+
+            // Debounce auto-save
+            scheduledAutoSaveTask?.cancel(false)
+            scheduledAutoSaveTask = autoSaveExecutor.schedule({
+                Platform.runLater { // Ensure UI updates are on the JavaFX application thread
+                    currentFile?.let { fileToSave ->
+                        if (fileToSave.exists() && fileToSave.isFile) {
+                            try {
+                                fileToSave.writeText(newText)
+                                // Update status bar - keep existing validation message if present
+                                val currentStatus = statusLabel.text
+                                val statusParts = currentStatus.split("|", limit = 2)
+                                val validationMsg = if (statusParts.size > 1) statusParts[1].trim() else ""
+                                val lineColInfo = if (statusParts.isNotEmpty()) statusParts[0].trim() else "Línea: ?, Col: ?"
+                                statusLabel.text = "$lineColInfo | Auto-guardado. $validationMsg"
+                                // Temporarily change style, then revert or let validation override
+                                statusLabel.styleClass.removeAll("status-error", "status-valid") // Clear previous specific styles
+                                // No specific style for auto-save message, let validation/error dictate color
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                statusLabel.text = "Error en auto-guardado: ${e.message}"
+                                statusLabel.styleClass.setAll("status-error")
+                            }
+                        }
+                    }
+                }
+            }, autoSaveDelayMs, TimeUnit.MILLISECONDS)
         }
     }
 
     override fun stop() {
         super.stop()
         validationExecutor.shutdownNow()
+        autoSaveExecutor.shutdownNow()
     }
 
     private fun saveFile(
@@ -361,23 +423,67 @@ class ScardEditor : Application() {
         codeArea: CodeArea
     ) {
         saveItem.setOnAction {
-            val fileChooser = FileChooser()
-            fileChooser.extensionFilters.add(FileChooser.ExtensionFilter("SCARD Files", "*.scard"))
-            val file = fileChooser.showSaveDialog(primaryStage)
-            file?.writeText(codeArea.text)
+            val fileToSave = currentFile
+            if (fileToSave != null) {
+                try {
+                    fileToSave.writeText(codeArea.text)
+                    primaryStage.title = "Scard IDE - ${fileToSave.name}" // Ensure title is correct
+                    statusLabel.text = "Archivo guardado: ${fileToSave.name}"
+                    statusLabel.styleClass.setAll("status-valid")
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    statusLabel.text = "Error al guardar archivo: ${e.message}"
+                    statusLabel.styleClass.setAll("status-error")
+                    // Optionally, trigger Save As dialog here as a fallback
+                    // showSaveAsDialog(primaryStage, codeArea)
+                }
+            } else {
+                // currentFile is null, so behave like "Save As"
+                showSaveAsDialog(primaryStage, codeArea, isSaveAs = false)
+            }
         }
     }
 
+    private fun showSaveAsDialog(primaryStage: Stage, codeArea: CodeArea, isSaveAs: Boolean) {
+        val fileChooser = FileChooser()
+        fileChooser.extensionFilters.add(FileChooser.ExtensionFilter("SCARD Files", "*.scard"))
+        fileChooser.title = if (isSaveAs) "Guardar Como..." else "Guardar Archivo"
+
+        // Suggest current file name if available for "Save As"
+        currentFile?.let {
+            fileChooser.initialFileName = it.name
+            // Set initial directory to the parent directory of the current file
+            it.parentFile?.let { parentDir ->
+                if (parentDir.exists() && parentDir.isDirectory) {
+                    fileChooser.initialDirectory = parentDir
+                }
+            }
+        }
+
+        val file = fileChooser.showSaveDialog(primaryStage)
+        file?.let {
+            try {
+                it.writeText(codeArea.text)
+                currentFile = it // Update currentFile
+                primaryStage.title = "Scard IDE - ${it.name}"
+                statusLabel.text = "Archivo guardado como: ${it.name}"
+                statusLabel.styleClass.setAll("status-valid")
+            } catch (e: Exception) {
+                e.printStackTrace()
+                statusLabel.text = "Error al guardar archivo: ${e.message}"
+                statusLabel.styleClass.setAll("status-error")
+            }
+        }
+    }
+
+
     private fun saveAsFile(
-        saveAsItem: MenuItem,
+        saveAsItemMenuItem: MenuItem, // Renamed parameter to avoid conflict
         primaryStage: Stage,
         codeArea: CodeArea
     ) {
-        saveAsItem.setOnAction {
-            val fileChooser = FileChooser()
-            fileChooser.extensionFilters.add(FileChooser.ExtensionFilter("SCARD Files", "*.scard"))
-            val file = fileChooser.showSaveDialog(primaryStage)
-            file?.writeText(codeArea.text)
+        saveAsItemMenuItem.setOnAction { // Use the renamed parameter
+            showSaveAsDialog(primaryStage, codeArea, isSaveAs = true)
         }
     }
 
@@ -402,22 +508,21 @@ class ScardEditor : Application() {
                         val newFileName = "$name.scard"
                         val newFilePath = projectRootDir.resolve(newFileName)
                         try {
-                            Files.writeString(newFilePath, "", StandardOpenOption.CREATE_NEW) // Create empty file
-                            codeArea.replaceText("") // Clear code area
-                            performValidation("", codeArea) // Validate empty content
+                            Files.writeString(newFilePath, "", StandardOpenOption.CREATE_NEW)
+                            codeArea.replaceText("")
+                            currentFile = newFilePath.toFile()
+                            performValidation("", codeArea)
                             statusLabel.text = "Nuevo archivo creado: $newFileName"
                             statusLabel.styleClass.removeAll("status-valid", "status-error")
-                            projectView.loadDirectory(projectRootDir) // Refresh project view
+                            projectView.loadDirectory(projectRootDir)
 
-                            // Update stage title to reflect the new file
+
                             primaryStage.title = "Scard IDE - $newFileName"
 
-                            // Optionally, select the new file in the project view and open it
-                            // This might require changes in ProjectView or more complex logic here
-                            // For now, just refreshing the directory.
 
                         } catch (e: Exception) {
-                            // Handle file creation errors (e.g., file already exists)
+
+                            currentFile = null
                             statusLabel.text = "Error al crear archivo: ${e.message}"
                             statusLabel.styleClass.setAll("status-error")
                             e.printStackTrace()
@@ -425,12 +530,13 @@ class ScardEditor : Application() {
                     }
                 }
             } else {
-                // No directory is open, or project view is not properly initialized
+
                 codeArea.replaceText("")
+                currentFile = null
                 performValidation("", codeArea)
-                statusLabel.text = "Nuevo archivo"
+                statusLabel.text = "Nuevo archivo (guardar para asignar ubicación)"
                 statusLabel.styleClass.removeAll("status-valid", "status-error")
-                primaryStage.title = "Scard IDE" // Reset title
+                primaryStage.title = "Scard IDE - Sin título" // Reset title
             }
         }
     }
@@ -475,6 +581,7 @@ class ScardEditor : Application() {
             file?.let {
                 val content = it.readText()
                 codeArea.replaceText(content)
+                currentFile = it // Update currentFile
                 performValidation(content, codeArea)
                 primaryStage.title = "Scard IDE - ${it.name}"
                 if (projectView.view.root == null || projectView.view.root.children.isEmpty()) {
@@ -499,7 +606,11 @@ class ScardEditor : Application() {
 
         loadTemplateItem.setOnAction {
             codeArea.replaceText(template)
+            currentFile = null // Template is not saved to a file yet
+            (codeArea.scene.window as? Stage)?.title = "Scard IDE - Sin título (Plantilla)"
             performValidation(template, codeArea)
+            statusLabel.text = "Plantilla cargada. Guardar para crear archivo."
+            statusLabel.styleClass.removeAll("status-valid", "status-error")
         }
     }
 
