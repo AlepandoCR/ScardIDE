@@ -86,7 +86,7 @@ tasks.named<JavaCompile>("compileJava") {
 
 application {
     mainClass.set("dev.alepando.MainKt")
-    mainModule.set("ScardIDE.main") // Added this line
+    mainModule.set("ScardIDE.main")
 }
 
 tasks.named<JavaExec>("run") {
@@ -99,12 +99,8 @@ tasks.named<JavaExec>("run") {
     )
 }
 
+
 jlink {
-    mergedModule {
-        enabled = true
-
-    }
-
     moduleName.set("ScardIDE.main")
 
 
@@ -121,7 +117,6 @@ jlink {
         appVersion = "1.0.0"
         vendor = "Alepando"
         installerName = "ScardIDE Installer"
-
     }
 }
 
