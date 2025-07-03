@@ -5,7 +5,7 @@ data class ScardError(val line: Int, val message: String)
 
 object ScardValidator {
 
-    private val VALID_RARITIES = setOf("COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY")
+    private val VALID_RARITIES = setOf("COMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC")
     private val EXPECTED_FIELDS = setOf("id", "rarity", "npcName", "npcSpeed", "npcPassing", "npcShooting")
 
     fun validate(text: String): List<ScardError> {

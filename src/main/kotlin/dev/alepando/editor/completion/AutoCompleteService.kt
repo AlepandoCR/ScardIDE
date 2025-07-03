@@ -7,7 +7,7 @@ class AutoCompleteService {
     )
 
     val rarityValues = listOf(
-        "COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"
+        "COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC"
     )
 
     /**
