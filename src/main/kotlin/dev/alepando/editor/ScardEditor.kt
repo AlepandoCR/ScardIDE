@@ -103,7 +103,17 @@ class ScardEditor : Application() {
 
 
         fileMenu.items.addAll(newItem, openItem, openDirectoryItem, saveItem, saveAsItem, loadTemplateItem, exitItem)
+
+        val plantillaMenu = Menu("Plantilla")
+
+        val cargarPlantillaFromPlantillaMenu = MenuItem("Cargar Plantilla")
+        loadTemplate(cargarPlantillaFromPlantillaMenu, codeArea)
+        plantillaMenu.items.add(cargarPlantillaFromPlantillaMenu)
+        cargarPlantillaFromPlantillaMenu.accelerator = KeyCodeCombination(KeyCode.L, KeyCombination.CONTROL_DOWN, KeyCombination.ALT_DOWN)
+
+
         menuBar.menus.add(fileMenu)
+        menuBar.menus.add(plantillaMenu)
 
         val root = BorderPane()
         root.styleClass.add("root")
@@ -200,7 +210,7 @@ class ScardEditor : Application() {
                         }
 
 
-                        // If the full line already has a closing quote for rarity, we might need to adjust
+
                         val lineSuffix = lineText.substring(caretInLine)
                         if (lineSuffix.startsWith("\"")) {
                             // remove our added closing quote if one already exists right after caret
@@ -208,7 +218,7 @@ class ScardEditor : Application() {
                         }
 
 
-                    } else { // Standard keyword insertion
+                    } else {
                         replacementStartInLine = textBeforeCaretInLine.lastIndexOfAny(charArrayOf(' ', '=', '\t'))
                             .let { if (it == -1) 0 else it + 1 }
                     }
@@ -223,15 +233,12 @@ class ScardEditor : Application() {
                 suggestionsPopup.items.add(menuItem)
             }
 
-            // Show popup - needs to be relative to caret
-            // Getting screen coordinates for caret is a bit tricky with CodeArea
-            // A common way is to use codeArea.getCaretBounds() which returns Optional<Bounds>
+
             val caretBounds = codeArea.caretBounds
             if (caretBounds.isPresent) {
                 val bounds = caretBounds.get()
                 suggestionsPopup.show(codeArea, bounds.maxX, bounds.maxY)
             } else {
-                // Fallback if bounds are not available (e.g. caret not visible)
                 suggestionsPopup.show(codeArea.scene.window)
             }
         } else {
@@ -264,7 +271,12 @@ class ScardEditor : Application() {
 
     private fun performValidation(text: String, codeArea: CodeArea) {
         val errors = ScardValidator.validate(text)
+
         Platform.runLater {
+            if (text != codeArea.text) {
+                return@runLater
+            }
+
             val validationStatus: String
             val isValid: Boolean
             if (errors.isEmpty()) {
@@ -280,8 +292,18 @@ class ScardEditor : Application() {
                 isValid = false
             }
             updateStatusText(codeArea, validationStatus, isValid)
+
             val styleSpans = ScardSyntaxHighlighter.computeStyles(text, errors)
-            codeArea.setStyleSpans(0, styleSpans)
+
+            if (styleSpans.length() == codeArea.length) {
+                codeArea.setStyleSpans(0, styleSpans)
+            } else {
+                System.err.println(
+                    "ScardEditor: StyleSpans length (${styleSpans.length()}) " +
+                            "mismatches CodeArea length (${codeArea.length}) " +
+                            "even after text content check. Text analyzed: \"$text\""
+                )
+            }
         }
     }
 
