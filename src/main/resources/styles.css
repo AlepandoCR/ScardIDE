@@ -1,84 +1,103 @@
-/* General Dark Theme */
+/* General IntelliJ Darcula-like Theme */
 .root {
-    -fx-base: #3C3F41; /* Dark background for the window */
-    -fx-background: #3C3F41;
-    -fx-control-inner-background: #2B2B2B; /* Background for text input areas like CodeArea */
-    -fx-text-background-color: #A9B7C6; /* Default text color */
+    -fx-base: #2B2B2B; /* Darker base for IntelliJ Darcula feel */
+    -fx-background: #2B2B2B;
+    -fx-control-inner-background: #1E1E1E; /* Even darker for text input areas */
+    -fx-text-background-color: #D0D0D0; /* Lighter default text color */
 }
 
 .code-area {
-    -fx-background-color: #2B2B2B; /* Specific background for CodeArea */
-    -fx-text-fill: #A9B7C6; /* Default text color in CodeArea */
+    -fx-background-color: #2B2B2B; /* Background for CodeArea */
+    -fx-text-fill: #D0D0D0;       /* Default text color in CodeArea */
+    -fx-font-family: "Consolas", "Monaco", "Andale Mono", monospace;
+    -fx-font-size: 14pt; /* Increased font size */
 }
 
 /* Line numbers */
 .lineno {
-    -fx-background-color: #313335;
-    -fx-text-fill: #606366;
-    -fx-padding: 0 10px 0 5px; /* Adjust padding as needed */
+    -fx-background-color: #313335; /* Slightly darker than code area for separation */
+    -fx-text-fill: #D0D0D0;    /* Grey for line numbers */
+    -fx-padding: 0 10px 0 5px;
+    -fx-font-size: 12pt; /* Slightly smaller than code text */
 }
 
-
-/* Syntax Highlighting Styles for Dark Mode */
+/* Syntax Highlighting Styles - Inspired by IntelliJ Darcula */
 .keyword {
-    -fx-fill: #CC7832; /* Orange for keywords */
+    -fx-fill: #2099D1; /* Bright Blue/Cyan for keywords */
     -fx-font-weight: bold;
 }
 
 .comment {
-    -fx-fill: #808080; /* Grey for comments */
+    -fx-fill: #629755; /* Desaturated Green for comments */
     -fx-font-style: italic;
 }
 
 .string {
-    -fx-fill: #6A8759; /* Green for strings */
+    -fx-fill: #6A8759; /* Green for strings (original was good) */
 }
 
 .number {
-    -fx-fill: #6897BB; /* Blue for numbers */
+    -fx-fill: #9876AA; /* Purple for numbers */
 }
 
 .error {
-    /* -fx-underline: true; */ /* Underline can be noisy, using background or border */
-    -fx-background-color: #5E2B2B; /* Dark red background for error lines */
-    /* Or use a more subtle underline/border if preferred */
+    /* Using a subtle background and a bottom border for errors */
+    -fx-background-color: rgba(128, 0, 0, 0.2); /* Very transparent dark red background */
     -fx-border-color: red;
     -fx-border-width: 0 0 1px 0; /* Thin red bottom border for error lines */
-    /* -fx-text-fill: #FF5252; */ /* Optional: change text color for errors */
+    -fx-effect: dropshadow(gaussian, red, 2, 0.5, 0, 0);
 }
 
-/* Styles for MenuBar to fit dark mode */
+
+/* Styles for MenuBar */
 .menu-bar {
-    -fx-background-color: #3C3F41;
+    -fx-background-color: #3c3f41; /* Standard dark grey for menu bar */
 }
 
 .menu-bar .label {
-    -fx-text-fill: #A9B7C6; /* Text color for menu items */
+    -fx-text-fill: #D0D0D0; /* Text color for menu titles */
 }
 
 .menu:hover, .menu-item:hover {
-    -fx-background-color: #4B6EAF; /* Example hover color */
+    -fx-background-color: #007ACC; /* Accent color for hover - e.g., VS Code blue */
+}
+.menu:hover .label, .menu-item:hover .label {
+    -fx-text-fill: white;
 }
 
 .menu:showing {
-    -fx-background-color: #455A64;
+    -fx-background-color: #4a4d4f; /* Slightly different when menu is open */
 }
 
 .context-menu {
-    -fx-background-color: #2B2B2B;
-    -fx-border-color: #3C3F41;
+    -fx-background-color: #252526; /* Dark background for context menus */
+    -fx-border-color: #3c3f41;
+    -fx-text-fill: #D0D0D0;
 }
 
 .context-menu .label{
-    -fx-text-fill: #A9B7C6;
+    -fx-text-fill: #D0D0D0;
 }
 
 .context-menu .menu-item:focused {
-    -fx-background-color: #4B6EAF;
+    -fx-background-color: #007ACC; /* Accent color for focused items */
+}
+.context-menu .menu-item:focused .label {
+    -fx-text-fill: white;
 }
 
 /* Status Label */
-#statusLabel { /* Assuming you might add an ID to the status label for specific styling */
-    -fx-text-fill: #A9B7C6; /* Default text color */
-    -fx-padding: 5px;
+#statusLabel {
+    -fx-text-fill: #D0D0D0; /* Default text color */
+    -fx-padding: 5px 10px;
+    -fx-background-color: #313335; /* Match line number background or similar */
+    -fx-font-size: 10pt;
+}
+
+.status-valid {
+    -fx-text-fill: #6AAB73; /* Green for valid status */
+}
+
+.status-error {
+    -fx-text-fill: #FF5252; /* Red for error status */
 }

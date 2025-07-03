@@ -1,6 +1,5 @@
 package editor
 
-import editor.style.ScardError
 import editor.style.ScardSyntaxHighlighter
 import editor.style.ScardValidator
 import javafx.application.Application
@@ -11,13 +10,11 @@ import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
 import javafx.scene.control.MenuItem
 import javafx.scene.layout.BorderPane
-import javafx.scene.paint.Color
 import javafx.stage.FileChooser
 import javafx.stage.Stage
 import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
 import org.fxmisc.richtext.LineNumberFactory
-// import org.fxmisc.richtext.model.StyleSpansBuilder // No longer directly used here
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -25,55 +22,49 @@ import java.util.concurrent.TimeUnit
 class ScardEditor : Application() {
 
     private val statusLabel = Label().apply {
-        id = "statusLabel" // For specific CSS styling if needed
+        id = "statusLabel"
     }
 
     private val validationExecutor = Executors.newSingleThreadScheduledExecutor { runnable ->
         val thread = Thread(runnable)
-        thread.isDaemon = true // Allow JVM to exit even if this thread is running
+        thread.isDaemon = true
         thread
     }
     private var scheduledValidationTask: ScheduledFuture<*>? = null
-    private val validationDelayMs = 300L // Configurable delay
+    private val validationDelayMs = 300L
 
     override fun start(primaryStage: Stage) {
         val codeArea = CodeArea()
-        codeArea.styleClass.add("code-area") // Apply .code-area style
+        codeArea.styleClass.add("code-area")
         codeArea.paragraphGraphicFactory = LineNumberFactory.get(codeArea).apply {
-            // Potentially customize line number format or style here if needed
-            // For now, the .lineno class in CSS should target it.
         }
-
-
-        // Syntax highlighting will now be handled by the validationThreat/text listener
-        // ScardSyntaxHighlighter.applyHighlighting(codeArea) // Remove this line
 
 
         val scrollPane = VirtualizedScrollPane(codeArea)
 
         val menuBar = MenuBar()
-        menuBar.styleClass.add("menu-bar") // Apply .menu-bar style
+        menuBar.styleClass.add("menu-bar")
         val fileMenu = Menu("Archivo")
 
         val openItem = MenuItem("Abrir .scard")
         val saveItem = MenuItem("Guardar")
+        val loadTemplateItem = MenuItem("Cargar Plantilla")
 
         openFiles(openItem, primaryStage, codeArea)
-
         saveFile(saveItem, primaryStage, codeArea)
+        loadTemplate(loadTemplateItem, codeArea)
 
-        fileMenu.items.addAll(openItem, saveItem)
+        fileMenu.items.addAll(openItem, saveItem, loadTemplateItem)
         menuBar.menus.add(fileMenu)
 
         val root = BorderPane()
-        root.styleClass.add("root") // Apply .root style
+        root.styleClass.add("root")
         root.top = menuBar
         root.center = scrollPane
-        root.bottom = statusLabel // Add statusLabel to the layout
+        root.bottom = statusLabel
 
         val scene = Scene(root, 800.0, 600.0)
 
-        // Cargamos css si usás
         scene.stylesheets.add(this::class.java.getResource("/styles.css")!!.toExternalForm())
 
         primaryStage.title = "Scard IDE"
@@ -81,12 +72,10 @@ class ScardEditor : Application() {
         primaryStage.show()
 
         setupLiveValidation(codeArea)
-        // Perform an initial validation for any existing text when the editor loads
         performValidation(codeArea.text, codeArea)
     }
 
     private fun performValidation(text: String, codeArea: CodeArea) {
-        // This function can be called initially or by the scheduled task
         val errors = ScardValidator.validate(text)
         Platform.runLater {
             statusLabel.styleClass.removeAll("status-valid", "status-error")
@@ -109,11 +98,8 @@ class ScardEditor : Application() {
 
     private fun setupLiveValidation(codeArea: CodeArea) {
         codeArea.textProperty().addListener { _, _, newText ->
-            scheduledValidationTask?.cancel(false) // Cancel previous task
+            scheduledValidationTask?.cancel(false)
             scheduledValidationTask = validationExecutor.schedule({
-                // Perform validation and UI update
-                // The validation itself (ScardValidator.validate) happens in this scheduled thread.
-                // UI updates (setStyleSpans, statusLabel) must be on the JavaFX Application Thread.
                 performValidation(newText, codeArea)
             }, validationDelayMs, TimeUnit.MILLISECONDS)
         }
@@ -121,7 +107,7 @@ class ScardEditor : Application() {
 
     override fun stop() {
         super.stop()
-        validationExecutor.shutdownNow() // Shut down the executor when the app closes
+        validationExecutor.shutdownNow()
     }
 
     private fun saveFile(
@@ -149,9 +135,27 @@ class ScardEditor : Application() {
             file?.let {
                 val content = it.readText()
                 codeArea.replaceText(content)
-                // Immediately validate and style the newly opened file's content
                 performValidation(content, codeArea)
             }
+        }
+    }
+
+    private fun loadTemplate(loadTemplateItem: MenuItem, codeArea: CodeArea) {
+        val template = """
+            # Template for Scard file
+            id = "unique_card_id"
+            # common, rare, epic, legendary
+            rarity = "common" 
+            npcName = "NPC Name"
+            npcSpeed = 1.0f
+            npcPassing = 10
+            npcShooting = 10
+            # Add other fields as needed
+            """.trimIndent()
+
+        loadTemplateItem.setOnAction {
+            codeArea.replaceText(template)
+            performValidation(template, codeArea)
         }
     }
 }

@@ -17,7 +17,7 @@ object ScardValidator {
             val trimmedLine = line.trim()
 
             if (trimmedLine.startsWith("#") || trimmedLine.isBlank()) {
-                continue // Skip comments and blank lines
+                continue
             }
 
             val parts = trimmedLine.split("=", limit = 2)
@@ -56,12 +56,12 @@ object ScardValidator {
                     val rarityValue = if (value.startsWith("\"") && value.endsWith("\"")) {
                         value.substring(1, value.length - 1)
                     } else {
-                        value // Allow unquoted for now, or enforce quotes
+                        value
                     }
                     if (!VALID_RARITIES.contains(rarityValue.uppercase())) {
                         errors.add(ScardError(index, "Valor de 'rarity' inválido: '$rarityValue'. Valores permitidos: ${VALID_RARITIES.joinToString()}."))
                     }
-                    if (!value.startsWith("\"") || !value.endsWith("\"")) { // Enforce quotes for rarity as well for consistency
+                    if (!value.startsWith("\"") || !value.endsWith("\"")) {
                         errors.add(ScardError(index, "El valor para 'rarity' debe estar entre comillas dobles (ej: \"COMMON\")."))
                     }
                 }
