@@ -11,6 +11,7 @@ import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
 import javafx.scene.control.MenuItem
 import dev.alepando.editor.completion.AutoCompleteService
+import javafx.scene.control.TextInputDialog
 import javafx.scene.control.ContextMenu
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
@@ -23,9 +24,13 @@ import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
 import org.fxmisc.richtext.LineNumberFactory
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
+import kotlin.io.path.isDirectory
 
 class ScardEditor : Application() {
 
@@ -72,14 +77,11 @@ class ScardEditor : Application() {
         newItem.accelerator = KeyCodeCombination(KeyCode.N, KeyCombination.CONTROL_DOWN)
         val loadTemplateItem = MenuItem("Cargar Plantilla")
         val openDirectoryItem = MenuItem("Abrir Carpeta")
-        // No common shortcut for load template or open directory, so we'll omit it for now
         val exitItem = MenuItem("Salir")
-        exitItem.accelerator = KeyCodeCombination(KeyCode.Q, KeyCombination.CONTROL_DOWN) // Or KeyCode.F4, KeyCombination.ALT_DOWN
+        exitItem.accelerator = KeyCodeCombination(KeyCode.Q, KeyCombination.CONTROL_DOWN)
 
 
-        // ProjectView Initialization
         projectView = ProjectView { filePath ->
-            // This lambda is called when a file is selected in ProjectView
             try {
                 val content = filePath.toFile().readText()
                 codeArea.replaceText(content)
@@ -96,7 +98,7 @@ class ScardEditor : Application() {
         openFiles(openItem, primaryStage, codeArea)
         saveFile(saveItem, primaryStage, codeArea)
         saveAsFile(saveAsItem, primaryStage, codeArea)
-        newFile(newItem, codeArea)
+        newFile(newItem, primaryStage, codeArea, projectView)
         loadTemplate(loadTemplateItem, codeArea)
         openDirectory(openDirectoryItem, primaryStage, projectView)
         exitApplication(exitItem)
@@ -122,7 +124,7 @@ class ScardEditor : Application() {
         root.left = projectView.view
         root.bottom = statusLabel
 
-        val scene = Scene(root, 1024.0, 768.0) // Increased default size
+        val scene = Scene(root, 1024.0, 768.0)
 
         val stylesheet = this::class.java.getResource("/styles.css")
             ?: throw IllegalStateException("styles.css not found")
@@ -133,9 +135,29 @@ class ScardEditor : Application() {
         primaryStage.show()
 
         setupLiveValidation(codeArea)
-        setupStatusBar(codeArea) // Add this call
-        setupAutoCompletion(codeArea) // Add this call
-        performValidation(codeArea.text, codeArea) // Initial validation and status update
+        setupStatusBar(codeArea)
+        setupAutoCompletion(codeArea)
+        performValidation(codeArea.text, codeArea)
+
+        openFromFile(primaryStage)
+    }
+
+    private fun openFromFile(primaryStage: Stage) {
+        openedFilePath?.let { pathStr ->
+            val file = File(pathStr)
+            if (file.exists() && file.extension == "scard") {
+                val content = file.readText()
+                codeArea.replaceText(content)
+                performValidation(content, codeArea)
+                primaryStage.title = "Scard IDE - ${file.name}"
+
+                if (projectView.view.root == null || projectView.view.root.children.isEmpty()) {
+                    file.parentFile?.toPath()?.let { parentDir ->
+                        projectView.loadDirectory(parentDir)
+                    }
+                }
+            }
+        }
     }
 
     private fun setupAutoCompletion(codeArea: CodeArea) {
@@ -361,13 +383,55 @@ class ScardEditor : Application() {
 
     private fun newFile(
         newItem: MenuItem,
-        codeArea: CodeArea
+        primaryStage: Stage,
+        codeArea: CodeArea,
+        projectView: ProjectView
     ) {
         newItem.setOnAction {
-            codeArea.replaceText("")
-            performValidation("", codeArea)
-            statusLabel.text = "Nuevo archivo"
-            statusLabel.styleClass.removeAll("status-valid", "status-error")
+            val projectRootNode = projectView.view.root
+            val projectRootDir = projectRootNode?.value
+
+            if (projectRootDir != null && projectRootDir.isDirectory() && projectRootDir.toString() != "Error: Not a directory") {
+                // A directory is open
+                val dialog = TextInputDialog()
+                dialog.title = "Nuevo Archivo SCARD"
+                dialog.headerText = "Introduce el nombre para el nuevo archivo .scard (sin extensión):"
+                dialog.contentText = "Nombre:"
+                dialog.showAndWait().ifPresent { name ->
+                    if (name.isNotBlank()) {
+                        val newFileName = "$name.scard"
+                        val newFilePath = projectRootDir.resolve(newFileName)
+                        try {
+                            Files.writeString(newFilePath, "", StandardOpenOption.CREATE_NEW) // Create empty file
+                            codeArea.replaceText("") // Clear code area
+                            performValidation("", codeArea) // Validate empty content
+                            statusLabel.text = "Nuevo archivo creado: $newFileName"
+                            statusLabel.styleClass.removeAll("status-valid", "status-error")
+                            projectView.loadDirectory(projectRootDir) // Refresh project view
+
+                            // Update stage title to reflect the new file
+                            primaryStage.title = "Scard IDE - $newFileName"
+
+                            // Optionally, select the new file in the project view and open it
+                            // This might require changes in ProjectView or more complex logic here
+                            // For now, just refreshing the directory.
+
+                        } catch (e: Exception) {
+                            // Handle file creation errors (e.g., file already exists)
+                            statusLabel.text = "Error al crear archivo: ${e.message}"
+                            statusLabel.styleClass.setAll("status-error")
+                            e.printStackTrace()
+                        }
+                    }
+                }
+            } else {
+                // No directory is open, or project view is not properly initialized
+                codeArea.replaceText("")
+                performValidation("", codeArea)
+                statusLabel.text = "Nuevo archivo"
+                statusLabel.styleClass.removeAll("status-valid", "status-error")
+                primaryStage.title = "Scard IDE" // Reset title
+            }
         }
     }
 
@@ -438,4 +502,9 @@ class ScardEditor : Application() {
             performValidation(template, codeArea)
         }
     }
+
+    companion object {
+        var openedFilePath: String? = null
+    }
+
 }

@@ -4,7 +4,6 @@ module ScardIDE.main {
     requires javafx.controls;
     requires org.fxmisc.flowless;
 
-    exports dev.alepando;
     exports dev.alepando.editor.style;
     exports dev.alepando.editor.filetree;
     exports dev.alepando.editor.completion;

@@ -117,6 +117,11 @@ jlink {
         appVersion = "1.0.0"
         vendor = "Alepando"
         installerName = "ScardIDE Installer"
+
+        resourceDir = file("src/packaging")
+
+        icon = "src/packaging/icons/scard.ico"
+        installerOptions.add("--win-shortcut")
     }
 }
 
