@@ -17,23 +17,42 @@ import javafx.stage.Stage
 import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
 import org.fxmisc.richtext.LineNumberFactory
-import org.fxmisc.richtext.model.StyleSpansBuilder
+// import org.fxmisc.richtext.model.StyleSpansBuilder // No longer directly used here
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 
 class ScardEditor : Application() {
 
-    private val statusLabel = Label()
+    private val statusLabel = Label().apply {
+        id = "statusLabel" // For specific CSS styling if needed
+    }
+
+    private val validationExecutor = Executors.newSingleThreadScheduledExecutor { runnable ->
+        val thread = Thread(runnable)
+        thread.isDaemon = true // Allow JVM to exit even if this thread is running
+        thread
+    }
+    private var scheduledValidationTask: ScheduledFuture<*>? = null
+    private val validationDelayMs = 300L // Configurable delay
 
     override fun start(primaryStage: Stage) {
         val codeArea = CodeArea()
-        codeArea.paragraphGraphicFactory = LineNumberFactory.get(codeArea)
+        codeArea.styleClass.add("code-area") // Apply .code-area style
+        codeArea.paragraphGraphicFactory = LineNumberFactory.get(codeArea).apply {
+            // Potentially customize line number format or style here if needed
+            // For now, the .lineno class in CSS should target it.
+        }
 
-        // Establecer resaltado aquí o en otra clase
-        ScardSyntaxHighlighter.applyHighlighting(codeArea)
+
+        // Syntax highlighting will now be handled by the validationThreat/text listener
+        // ScardSyntaxHighlighter.applyHighlighting(codeArea) // Remove this line
 
 
         val scrollPane = VirtualizedScrollPane(codeArea)
 
         val menuBar = MenuBar()
+        menuBar.styleClass.add("menu-bar") // Apply .menu-bar style
         val fileMenu = Menu("Archivo")
 
         val openItem = MenuItem("Abrir .scard")
@@ -47,8 +66,10 @@ class ScardEditor : Application() {
         menuBar.menus.add(fileMenu)
 
         val root = BorderPane()
+        root.styleClass.add("root") // Apply .root style
         root.top = menuBar
         root.center = scrollPane
+        root.bottom = statusLabel // Add statusLabel to the layout
 
         val scene = Scene(root, 800.0, 600.0)
 
@@ -59,35 +80,48 @@ class ScardEditor : Application() {
         primaryStage.scene = scene
         primaryStage.show()
 
-        validationThreat(codeArea)
+        setupLiveValidation(codeArea)
+        // Perform an initial validation for any existing text when the editor loads
+        performValidation(codeArea.text, codeArea)
     }
 
-    private fun validationThreat(codeArea: CodeArea) {
-        var validationThread: Thread? = null
-        codeArea.textProperty().addListener { _, _, newText ->
-            validationThread?.interrupt()
-            validationThread = Thread {
-                try {
-                    Thread.sleep(300)
-                    Platform.runLater {
-                        val errors = ScardValidator.validate(newText)
-                        if (errors.isEmpty()) {
-                            statusLabel.text = "Archivo válido"
-                            statusLabel.textFill = Color.GREEN
-                        } else {
-                            val msgs =
-                                errors.joinToString("; ") { if (it.line >= 0) "Linea ${it.line + 1}: ${it.message}" else it.message }
-                            statusLabel.text = "Errores: $msgs"
-                            statusLabel.textFill = Color.RED
-                        }
-
-                        ScardValidator.highlightErrors(codeArea, errors)
+    private fun performValidation(text: String, codeArea: CodeArea) {
+        // This function can be called initially or by the scheduled task
+        val errors = ScardValidator.validate(text)
+        Platform.runLater {
+            statusLabel.styleClass.removeAll("status-valid", "status-error")
+            if (errors.isEmpty()) {
+                statusLabel.text = "Archivo válido"
+                statusLabel.styleClass.add("status-valid")
+            } else {
+                val msgs =
+                    errors.joinToString("; ") { error ->
+                        if (error.line >= 0) "Linea ${error.line + 1}: ${error.message}"
+                        else error.message
                     }
-                } catch (_: InterruptedException) {
-                }
+                statusLabel.text = "Errores: $msgs"
+                statusLabel.styleClass.add("status-error")
             }
-            validationThread?.start()
+            val styleSpans = ScardSyntaxHighlighter.computeStyles(text, errors)
+            codeArea.setStyleSpans(0, styleSpans)
         }
+    }
+
+    private fun setupLiveValidation(codeArea: CodeArea) {
+        codeArea.textProperty().addListener { _, _, newText ->
+            scheduledValidationTask?.cancel(false) // Cancel previous task
+            scheduledValidationTask = validationExecutor.schedule({
+                // Perform validation and UI update
+                // The validation itself (ScardValidator.validate) happens in this scheduled thread.
+                // UI updates (setStyleSpans, statusLabel) must be on the JavaFX Application Thread.
+                performValidation(newText, codeArea)
+            }, validationDelayMs, TimeUnit.MILLISECONDS)
+        }
+    }
+
+    override fun stop() {
+        super.stop()
+        validationExecutor.shutdownNow() // Shut down the executor when the app closes
     }
 
     private fun saveFile(
@@ -115,6 +149,8 @@ class ScardEditor : Application() {
             file?.let {
                 val content = it.readText()
                 codeArea.replaceText(content)
+                // Immediately validate and style the newly opened file's content
+                performValidation(content, codeArea)
             }
         }
     }

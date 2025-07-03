@@ -1,24 +1,84 @@
+/* General Dark Theme */
+.root {
+    -fx-base: #3C3F41; /* Dark background for the window */
+    -fx-background: #3C3F41;
+    -fx-control-inner-background: #2B2B2B; /* Background for text input areas like CodeArea */
+    -fx-text-background-color: #A9B7C6; /* Default text color */
+}
+
+.code-area {
+    -fx-background-color: #2B2B2B; /* Specific background for CodeArea */
+    -fx-text-fill: #A9B7C6; /* Default text color in CodeArea */
+}
+
+/* Line numbers */
+.lineno {
+    -fx-background-color: #313335;
+    -fx-text-fill: #606366;
+    -fx-padding: 0 10px 0 5px; /* Adjust padding as needed */
+}
+
+
+/* Syntax Highlighting Styles for Dark Mode */
 .keyword {
-    -fx-fill: #0077cc;
+    -fx-fill: #CC7832; /* Orange for keywords */
     -fx-font-weight: bold;
 }
 
 .comment {
-    -fx-fill: #888888;
+    -fx-fill: #808080; /* Grey for comments */
     -fx-font-style: italic;
 }
 
 .string {
-    -fx-fill: #2aa345;
+    -fx-fill: #6A8759; /* Green for strings */
 }
 
 .number {
-    -fx-fill: #d97e00;
+    -fx-fill: #6897BB; /* Blue for numbers */
 }
 
 .error {
-    -fx-underline: true;
+    /* -fx-underline: true; */ /* Underline can be noisy, using background or border */
+    -fx-background-color: #5E2B2B; /* Dark red background for error lines */
+    /* Or use a more subtle underline/border if preferred */
     -fx-border-color: red;
-    -fx-border-width: 0 0 2 0;
+    -fx-border-width: 0 0 1px 0; /* Thin red bottom border for error lines */
+    /* -fx-text-fill: #FF5252; */ /* Optional: change text color for errors */
 }
 
+/* Styles for MenuBar to fit dark mode */
+.menu-bar {
+    -fx-background-color: #3C3F41;
+}
+
+.menu-bar .label {
+    -fx-text-fill: #A9B7C6; /* Text color for menu items */
+}
+
+.menu:hover, .menu-item:hover {
+    -fx-background-color: #4B6EAF; /* Example hover color */
+}
+
+.menu:showing {
+    -fx-background-color: #455A64;
+}
+
+.context-menu {
+    -fx-background-color: #2B2B2B;
+    -fx-border-color: #3C3F41;
+}
+
+.context-menu .label{
+    -fx-text-fill: #A9B7C6;
+}
+
+.context-menu .menu-item:focused {
+    -fx-background-color: #4B6EAF;
+}
+
+/* Status Label */
+#statusLabel { /* Assuming you might add an ID to the status label for specific styling */
+    -fx-text-fill: #A9B7C6; /* Default text color */
+    -fx-padding: 5px;
+}
