@@ -10,6 +10,8 @@ import javafx.scene.control.Label
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
 import javafx.scene.control.MenuItem
+import dev.alepando.editor.completion.AutoCompleteService
+import javafx.scene.control.ContextMenu
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
@@ -42,8 +44,13 @@ class ScardEditor : Application() {
     private var scheduledValidationTask: ScheduledFuture<*>? = null
     private val validationDelayMs = 300L
 
+    private lateinit var autoCompleteService: AutoCompleteService
+    private lateinit var suggestionsPopup: ContextMenu
+
     override fun start(primaryStage: Stage) {
         codeArea = CodeArea()
+        autoCompleteService = AutoCompleteService()
+        suggestionsPopup = ContextMenu()
         codeArea.styleClass.add("code-area")
         codeArea.paragraphGraphicFactory = LineNumberFactory.get(codeArea).apply {
         }
@@ -117,7 +124,127 @@ class ScardEditor : Application() {
 
         setupLiveValidation(codeArea)
         setupStatusBar(codeArea) // Add this call
+        setupAutoCompletion(codeArea) // Add this call
         performValidation(codeArea.text, codeArea) // Initial validation and status update
+    }
+
+    private fun setupAutoCompletion(codeArea: CodeArea) {
+        codeArea.textProperty().addListener { _, _, newText ->
+            handleAutoCompletion(newText)
+        }
+        codeArea.caretPositionProperty().addListener { _, _, _ ->
+            handleAutoCompletion(codeArea.text)
+        }
+    }
+
+    private fun handleAutoCompletion(text: String) {
+        if (text.isEmpty()) {
+            suggestionsPopup.hide()
+            return
+        }
+
+        val currentParagraph = codeArea.currentParagraph
+        val lineText = codeArea.getParagraph(currentParagraph).text
+        val caretInLine = codeArea.caretColumn
+
+        val suggestions = autoCompleteService.getSuggestions(lineText, caretInLine)
+
+        if (suggestions.isNotEmpty()) {
+            suggestionsPopup.items.clear()
+            suggestions.forEach { suggestion ->
+                val menuItem = MenuItem(suggestion)
+                menuItem.setOnAction {
+                    val currentParagraphIndex = codeArea.currentParagraph
+                    val lineStartGlobal = codeArea.getAbsolutePosition(currentParagraphIndex, 0)
+                    val textBeforeCaretInLine = textBeforeCaret(lineText, caretInLine)
+
+                    var textToInsert = suggestion
+                    var replacementStartInLine: Int
+
+                    // Check if we are in the context of completing a rarity value
+                    val rarityAssignmentRegex = """^\s*rarity\s*=\s*""".toRegex(RegexOption.IGNORE_CASE)
+                    val rarityValuePrefixRegex = """(rarity\s*=\s*")([^"]*)""".toRegex(RegexOption.IGNORE_CASE)
+
+                    rarityValuePrefixRegex.find(textBeforeCaretInLine)
+
+                    if (autoCompleteService.rarityValues.contains(suggestion) && // Check if the suggestion is a known rarity
+                        (rarityAssignmentRegex.containsMatchIn(textBeforeCaretInLine) || lineText.trimStart()
+                            .startsWith("rarity", ignoreCase = true))
+                    ) {
+
+                        val currentTextUpToCaret = lineText.substring(0, caretInLine)
+                        val equalsIndex = currentTextUpToCaret.lastIndexOf('=')
+                        val quoteIndex = currentTextUpToCaret.lastIndexOf('"')
+
+                        replacementStartInLine = if (quoteIndex > equalsIndex) {
+                            quoteIndex + 1 // Start replacing after the opening quote
+                        } else {
+                            // User hasn't typed a quote yet, find where the value should start
+                            (equalsIndex + 1).let { idx ->
+                                currentTextUpToCaret.substring(idx).indexOfFirst { !it.isWhitespace() } + idx
+                            }
+                        }
+
+                        textToInsert = "\"$suggestion\""
+
+                        if (quoteIndex == -1 && equalsIndex != -1) {
+                            replacementStartInLine = currentTextUpToCaret.indexOf(
+                                '=',
+                                startIndex = currentTextUpToCaret.toLowerCase().lastIndexOf("rarity")
+                            ) + 1
+                            while (replacementStartInLine < currentTextUpToCaret.length && currentTextUpToCaret[replacementStartInLine].isWhitespace()) {
+                                replacementStartInLine++
+                            }
+                        } else if (quoteIndex > equalsIndex) {
+
+                        }
+
+
+                        // If the full line already has a closing quote for rarity, we might need to adjust
+                        val lineSuffix = lineText.substring(caretInLine)
+                        if (lineSuffix.startsWith("\"")) {
+                            // remove our added closing quote if one already exists right after caret
+                            textToInsert = "\"$suggestion"
+                        }
+
+
+                    } else { // Standard keyword insertion
+                        replacementStartInLine = textBeforeCaretInLine.lastIndexOfAny(charArrayOf(' ', '=', '\t'))
+                            .let { if (it == -1) 0 else it + 1 }
+                    }
+
+                    val replaceStartGlobal = lineStartGlobal + replacementStartInLine
+                    val replaceEndGlobal = lineStartGlobal + caretInLine
+
+                    codeArea.replaceText(replaceStartGlobal, replaceEndGlobal, textToInsert)
+                    codeArea.moveTo(replaceStartGlobal + textToInsert.length)
+                    suggestionsPopup.hide()
+                }
+                suggestionsPopup.items.add(menuItem)
+            }
+
+            // Show popup - needs to be relative to caret
+            // Getting screen coordinates for caret is a bit tricky with CodeArea
+            // A common way is to use codeArea.getCaretBounds() which returns Optional<Bounds>
+            val caretBounds = codeArea.caretBounds
+            if (caretBounds.isPresent) {
+                val bounds = caretBounds.get()
+                suggestionsPopup.show(codeArea, bounds.maxX, bounds.maxY)
+            } else {
+                // Fallback if bounds are not available (e.g. caret not visible)
+                suggestionsPopup.show(codeArea.scene.window)
+            }
+        } else {
+            suggestionsPopup.hide()
+        }
+    }
+
+    private fun textBeforeCaret(lineText: String, caretInLine: Int): String {
+        return if (caretInLine > 0 && caretInLine <= lineText.length) {
+            lineText.substring(0, caretInLine)
+        } else {
+            ""
+        }
     }
 
     private fun updateStatusText(codeArea: CodeArea, validationStatus: String, isValid: Boolean?) {
