@@ -65,7 +65,9 @@ class ScardEditor : Application() {
 
         val scene = Scene(root, 800.0, 600.0)
 
-        scene.stylesheets.add(this::class.java.getResource("/styles.css")!!.toExternalForm())
+        val stylesheet = this::class.java.getResource("/styles.css")
+            ?: throw IllegalStateException("styles.css not found")
+        scene.stylesheets.add(stylesheet.toExternalForm())
 
         primaryStage.title = "Scard IDE"
         primaryStage.scene = scene
@@ -144,7 +146,7 @@ class ScardEditor : Application() {
         val template = """
             # Template for Scard file
             id = "unique_card_id"
-            # common, rare, epic, legendary
+            # common, rare, epic, legendary, mythic
             rarity = "common" 
             npcName = "NPC Name"
             npcSpeed = 1.0f

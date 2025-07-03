@@ -25,8 +25,6 @@ javafx {
     modules = listOf("javafx.controls", "javafx.graphics")
 }
 
-
-
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(22))
@@ -34,17 +32,19 @@ java {
     }
 }
 
-
 application {
     mainClass.set("dev.alepando.MainKt")
-    mainModule.set("ScardIDE.main")
 }
-
 
 jlink {
     mergedModule {
         enabled = true
+
     }
+
+    moduleName.set("ScardIDE.main")
+
+
 
     forceMerge("javafx", "org.fxmisc")
 
@@ -60,15 +60,16 @@ jlink {
         installerName = "ScardIDE Installer"
         installerOptions.addAll(listOf("--win-menu", "--win-shortcut"))
     }
-
 }
 
-
-
 tasks.jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
         attributes(
             "Main-Class" to "dev.alepando.MainKt"
         )
     }
 }
+
+
+
